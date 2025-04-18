@@ -146,3 +146,5 @@ api_doc
 .devcontainer/docker-compose.yml
 .github/dependabot.yml
 models_orders.py
+
+main_reserv*
