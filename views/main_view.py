@@ -18,5 +18,6 @@ async def main_page(request: Request):
         "main.html",
         context={
             "request": request,
+            "qr_api_base": "https://testimonium.serveo.net/cb/api/qr/",  # TODO в настройки
         },
     )
