@@ -1,16 +1,206 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Главная страница</title>
+
+    <!-- Telegram Web‑App SDK (безопасно подключить даже внутри Telegram) -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 2rem;
+        }
+
+        h1 {
+            margin-bottom: 2rem;
+        }
+
+        #menu button {
+            margin: 0 0.5rem;
+            padding: 1rem 2rem;
+            font-size: 1.1rem;
+            cursor: pointer;
+        }
+
+        #scanner {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #video {
+            width: 100%;
+            max-width: 480px;
+            border: 2px solid #ccc;
+            border-radius: 8px;
+        }
+
+        #output,
+        #user-info {
+            margin-top: 1rem;
+            font-weight: bold;
+            text-align: center;
+        }
+    </style>
 </head>
 
 <body>
     <h1>Главная страница</h1>
-    <button>ПОГРУЗКА</button>
-    <button>УПАКОВКА</button>
+
+    <p id="user-info">Определяю chat_id…</p>
+
+    <div id="menu">
+        <button id="load-btn">ПОГРУЗКА</button>
+        <button id="pack-btn">УПАКОВКА</button>
+    </div>
+
+    <div id="scanner">
+        <video id="video" autoplay></video>
+        <canvas id="canvas" hidden></canvas>
+        <p id="output"></p>
+        <button id="stop-btn">Закрыть камеру</button>
+    </div>
+
+    <!-- jsQR – распознавание QR из Canvas -->
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+    <script>
+        /********** Telegram init + chatId **********/
+        const tg = window.Telegram?.WebApp; tg?.ready();
+        const init = tg?.initDataUnsafe || {};
+        const chatId = init.user?.id ?? init.receiver?.id ?? init.chat?.id ?? null;
+        document.getElementById('user-info').textContent = chatId ? `Ваш chat_id: ${chatId}` : 'chat_id недоступен.';
+
+        const qrApiBase = {{ qr_api_base | tojson }};
+
+        /********** DOM ссылки **********/
+        const loadBtn = document.getElementById('load-btn');
+        const packBtn = document.getElementById('pack-btn');
+        const stopBtn = document.getElementById('stop-btn');
+        const menuDiv = document.getElementById('menu');
+        const scannerDiv = document.getElementById('scanner');
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const output = document.getElementById('output');
+
+        /********** Состояние **********/
+        let streamRef = null;
+        let scanning = false;
+        let operation = '';
+
+        loadBtn.addEventListener('click', () => startScan('shipment'));
+        packBtn.addEventListener('click', () => startScan('packing'));
+        stopBtn.addEventListener('click', stopScanning);
+
+        async function startScan(op) {
+            operation = op;
+            menuDiv.style.display = 'none';
+            scannerDiv.style.display = 'flex';
+            output.textContent = `Режим: ${operation}. Наведите камеру на QR‑код…`;
+
+            // iOS: сначала попробуем нативный сканер Telegram
+            const isIOS = tg?.platform === 'ios' || /iPhone|iPad|iPod/i.test(navigator.userAgent);
+            if (isIOS && typeof tg?.showScanQrPopup === 'function') {
+                try {
+                    scanning = true; // чтобы таймаут понимал, что скан запущен
+                    tg.showScanQrPopup();
+                    tg.onEvent('qrTextReceived', ({ data }) => handleQr(data));
+                    // fallback через 3 сек — если пользователь закрыл сканер
+                    setTimeout(() => { if (scanning) openWebCamera(); }, 3000);
+                    return;
+                } catch (e) { console.warn('showScanQrPopup error', e); }
+            }
+            // Десктоп / Android / fallback
+            openWebCamera();
+        }
+
+        async function openWebCamera() {
+            try {
+                const constraints = { video: { facingMode: 'environment' } };
+                streamRef = await navigator.mediaDevices.getUserMedia(constraints);
+                video.srcObject = streamRef;
+                video.onloadedmetadata = () => {
+                    video.play();
+                    scanning = true;
+                    requestAnimationFrame(scanFrame);
+                };
+            } catch (e) {
+                console.error('Ошибка доступа к камере:', e);
+                output.textContent = 'Ошибка доступа к камере';
+            }
+        }
+
+        function stopScanning() {
+            scanning = false;
+            if (streamRef) {
+                streamRef.getTracks().forEach(t => t.stop());
+                streamRef = null;
+            }
+            video.pause();
+            video.srcObject = null;
+            video.load();
+
+            scannerDiv.style.display = 'none';
+            menuDiv.style.display = 'block';
+
+            output.textContent = '';
+            operation = '';
+        }
+
+        function scanFrame() {
+            if (!scanning) return;
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                canvas.height = video.videoHeight;
+                canvas.width = video.videoWidth;
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const code = jsQR(img.data, img.width, img.height);
+                if (code) { handleQr(code.data); return; }
+            }
+            requestAnimationFrame(scanFrame);
+        }
+
+        function handleQr(qrData) {
+            if (!operation) return;          // защита от лишних вызовов
+            scanning = false;                // перестаём анализировать кадры, но камеру держим
+            console.log(`[${operation}] QR:`, qrData, 'chatId:', chatId);
+            output.textContent = 'Отправляю данные…';
+
+            const params = new URLSearchParams({
+                operation,
+                userId: chatId ?? '',
+                qrData
+            });
+
+            // fetch(`https://itinera.serveo.net/m/api/qr/?${params.toString()}`)
+            fetch(`${qrApiBase}?${params.toString()}`)
+                .then(res => {
+                    if (res.ok) {
+                        output.textContent = 'Успешно отправлено!';
+                        stopScanning();      // закрываем камеру и возвращаем меню
+                    } else {
+                        output.textContent = `Ошибка сервера (${res.status}). Повторите.`;
+                        scanning = true;     // разрешаем повторный скан
+                        requestAnimationFrame(scanFrame);
+                    }
+                })
+                .catch(err => {
+                    console.error('API error', err);
+                    output.textContent = 'Сеть недоступна. Повторите.';
+                    scanning = true;
+                    requestAnimationFrame(scanFrame);
+                });
+        }
+    </script>
 </body>
 
 </html>
