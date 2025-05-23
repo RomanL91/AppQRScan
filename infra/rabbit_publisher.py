@@ -1,4 +1,3 @@
-import os
 import json
 import aio_pika
 
@@ -40,13 +39,21 @@ class AioPikaPublisher(PublisherInterface):
             await self._conn.close()
 
     # --- Publish API --------------------------------------------------------
-    async def publish(self, message: Mapping[str, Any]) -> None:
+    async def publish(
+        self, message: Mapping[str, Any], queue: str | None = None
+    ) -> None:
         if not self._channel:
             raise RuntimeError("Publisher not connected")
+
+        target_queue = queue or self.queue
+
+        if queue:
+            await self._channel.declare_queue(target_queue, durable=True)
+
         await self._channel.default_exchange.publish(
             aio_pika.Message(
                 body=json.dumps(message).encode(),
                 delivery_mode=aio_pika.DeliveryMode.PERSISTENT,
             ),
-            routing_key=self.queue,
+            routing_key=target_queue,
         )
