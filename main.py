@@ -1,6 +1,7 @@
 import uvicorn
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
 from views import router as view_router
@@ -38,6 +39,14 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="QRS",
     lifespan=lifespan,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # или укажи точные адреса
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 app.include_router(router=view_router)
 app.include_router(router=api_router)
