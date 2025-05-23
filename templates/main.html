@@ -6,9 +6,8 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Главная страница</title>
-
-    <!-- Telegram Web‑App SDK (безопасно подключить даже внутри Telegram) -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 
     <style>
         :root {
@@ -51,6 +50,19 @@
             margin: 0 0 1rem;
             font-size: 0.95rem;
             color: #555;
+            text-align: left;
+            max-width: 480px;
+        }
+
+        #instructions strong {
+            display: inline-block;
+            margin-top: 0.5rem;
+            font-size: 1rem;
+            color: #000;
+        }
+
+        #instructions b {
+            color: #1e5ed4;
         }
 
         #user-info {
@@ -59,19 +71,33 @@
             text-align: center;
         }
 
-        /* -------- кнопки меню -------- */
-        #menu {
+        .menu-group {
             width: 100%;
             display: flex;
             flex-direction: column;
             align-items: center;
+            margin-bottom: 1.5rem;
             gap: 0.75rem;
-            margin-bottom: 2rem;
         }
 
-        #menu button {
+        .menu-title {
+            margin: 0 0 0.5rem;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .button-row {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
             width: 90vw;
             max-width: 420px;
+            justify-content: center;
+        }
+
+        .btn-primary {
+            width: 100%;
             padding: 1.2rem 2rem;
             font-size: 1.25rem;
             font-weight: 600;
@@ -85,17 +111,37 @@
             transition: background 0.2s ease, transform 0.1s ease;
         }
 
-        #menu button:active {
+        .btn-primary:active {
             background: var(--primary-dark);
             transform: scale(0.98);
         }
 
-        /* -------- сканер -------- */
+        .info-btn {
+            background: none;
+            border: none;
+            font-size: 1.4rem;
+            cursor: pointer;
+            line-height: 1;
+            padding: 0;
+            margin: 0;
+            color: #2e7dff;
+        }
+
         #scanner {
-            display: none;
+            visibility: hidden;
+            opacity: 0;
+            transition: opacity 0.3s ease;
             flex-direction: column;
             align-items: center;
             width: 100%;
+            height: 0;
+            overflow: hidden;
+        }
+
+        #scanner.active {
+            visibility: visible;
+            opacity: 1;
+            height: auto;
         }
 
         #video {
@@ -130,6 +176,39 @@
             background: #d63c3c;
             transform: scale(0.98);
         }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 999;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.4);
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 10px;
+            max-width: 360px;
+            text-align: left;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            font-size: 1rem;
+            position: relative;
+        }
+
+        #modal-close {
+            position: absolute;
+            right: 1rem;
+            top: 0.5rem;
+            font-size: 1.4rem;
+            cursor: pointer;
+            color: #999;
+        }
     </style>
 </head>
 
@@ -137,29 +216,40 @@
     <header>
         <h1>Сканер QR‑кодов</h1>
         <p id="instructions">
-            Выберите режим работы и отсканируйте QR‑код.
-            <br>
-            Если Вы занимались, например, упаковкой товара - выберите режим "УПАКОВКА", отсканируйте QR, чтобы эта
-            работа была учтена за Вами.
-            <br>
-            Если Вы занимались и погрузкой - выберите режим "ПОГРУЗКА" и отсканируйте QR.
-            <br>
-            <br>
-            Предупреждения!
-            <br>
-            Не имеет смысла сканировать несколько раз с одним и тем же режимом.
-            <br>
-            Если другой сотрудник так же отсканирует QR-код заказа - Вы разделите бонусные баллы между собой.
-
-
+            Выберите тип работы и отсканируйте QR‑код заказа.<br><br>
+            <strong>Kaspi маркетплейс:</strong><br>
+            ▸ <b>УПАКОВКА</b> — если вы упаковали заказ.<br>
+            ▸ <b>ПОГРУЗКА</b> — если вы погрузили заказ.<br><br>
+            <strong>Прочие работы:</strong><br>
+            ▸ <b>РАБОТЫ С ТОВАРОМ</b> — если участвовали в перемещении между складами, разгрузке поставки и т.п.<br><br>
+            <strong>Важно:</strong><br>
+            Повторное сканирование одного QR‑кода не увеличивает бонус.<br>
+            Бонус делится между сотрудниками, отсканировавшими один и тот же QR.
         </p>
     </header>
 
     <p id="user-info">Определяю chat_id…</p>
 
     <div id="menu">
-        <button id="load-btn">ПОГРУЗКА</button>
-        <button id="pack-btn">УПАКОВКА</button>
+        <div class="menu-group">
+            <h2 class="menu-title">📦 Kaspi маркетплейс</h2>
+            <div class="button-row">
+                <button id="load-btn" class="btn-primary">🚚 ПОГРУЗКА</button>
+                <button class="info-btn" data-type="load">ℹ️</button>
+            </div>
+            <div class="button-row">
+                <button id="pack-btn" class="btn-primary">📦 УПАКОВКА</button>
+                <button class="info-btn" data-type="pack">ℹ️</button>
+            </div>
+        </div>
+
+        <div class="menu-group">
+            <h2 class="menu-title">🔄 Прочие работы с товаром</h2>
+            <div class="button-row">
+                <button id="work-btn" class="btn-primary">👷🏻‍♂️🔧 РАБОТЫ С ТОВАРОМ</button>
+                <button class="info-btn" data-type="work">ℹ️</button>
+            </div>
+        </div>
     </div>
 
     <div id="scanner">
@@ -167,6 +257,13 @@
         <canvas id="canvas" hidden></canvas>
         <p id="output"></p>
         <button id="stop-btn">Закрыть камеру</button>
+    </div>
+
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <span id="modal-close">&times;</span>
+            <p id="modal-text"></p>
+        </div>
     </div>
 
     <!-- jsQR – распознавание QR из Canvas -->
@@ -183,6 +280,7 @@
         /********** DOM ссылки **********/
         const loadBtn = document.getElementById('load-btn');
         const packBtn = document.getElementById('pack-btn');
+        const workBtn = document.getElementById('work-btn');
         const stopBtn = document.getElementById('stop-btn');
         const menuDiv = document.getElementById('menu');
         const scannerDiv = document.getElementById('scanner');
@@ -198,27 +296,32 @@
 
         loadBtn.addEventListener('click', () => startScan('shipment'));
         packBtn.addEventListener('click', () => startScan('packing'));
+        workBtn.addEventListener('click', () => startScan('work'));
         stopBtn.addEventListener('click', stopScanning);
 
         async function startScan(op) {
             operation = op;
-            menuDiv.style.display = 'none';
-            scannerDiv.style.display = 'flex';
             output.textContent = `Режим: ${operation}. Наведите камеру на QR‑код…`;
 
-            // iOS: сначала попробуем нативный сканер Telegram
             const isIOS = tg?.platform === 'ios' || /iPhone|iPad|iPod/i.test(navigator.userAgent);
             if (isIOS && typeof tg?.showScanQrPopup === 'function') {
                 try {
-                    scanning = true; // чтобы таймаут понимал, что скан запущен
+                    scanning = true;
                     tg.showScanQrPopup();
                     tg.onEvent('qrTextReceived', ({ data }) => handleQr(data));
-                    // fallback через 3 сек — если пользователь закрыл сканер
-                    setTimeout(() => { if (scanning) openWebCamera(); }, 3000);
+                    // fallback через 3 сек, если не сработал showScanQrPopup
+                    setTimeout(() => {
+                        if (scanning) {
+                            openWebCamera();
+                        }
+                    }, 3000);
                     return;
-                } catch (e) { console.warn('showScanQrPopup error', e); }
+                } catch (e) {
+                    console.warn('showScanQrPopup error', e);
+                }
             }
-            // Десктоп / Android / fallback
+
+            // fallback: открываем камеру сразу
             openWebCamera();
         }
 
@@ -229,6 +332,8 @@
                 video.srcObject = streamRef;
                 video.onloadedmetadata = () => {
                     video.play();
+                    scannerDiv.classList.add('active');
+                    menuDiv.style.display = 'none';
                     scanning = true;
                     requestAnimationFrame(scanFrame);
                 };
@@ -248,11 +353,14 @@
             video.srcObject = null;
             video.load();
 
-            scannerDiv.style.display = 'none';
+            scannerDiv.classList.remove('active');
             menuDiv.style.display = 'flex';
 
             output.textContent = '';
             operation = '';
+            setTimeout(() => {
+                location.reload();
+            }, 100);
         }
 
         function scanFrame() {
@@ -268,26 +376,73 @@
             requestAnimationFrame(scanFrame);
         }
 
-        function handleQr(qrData) {
-            if (!operation) return;          // защита от лишних вызовов
-            scanning = false;                // перестаём анализировать кадры, но камеру держим
-            console.log(`[${operation}] QR:`, qrData, 'chatId:', chatId);
+        function handleQr(qrDataRaw) {
+            if (!operation) return;
+            scanning = false;
+            console.log(`[${operation}] QR (raw):`, qrDataRaw, 'chatId:', chatId);
             output.textContent = 'Отправляю данные…';
 
+            let qrData = null;
+            try {
+                qrData = JSON.parse(qrDataRaw); // ✅ преобразуем строку в объект
+            } catch (e) {
+                console.error('Ошибка парсинга QR:', e);
+                output.textContent = 'Неверный формат QR‑кода';
+                scanning = true;
+                requestAnimationFrame(scanFrame);
+                return;
+            }
+
+            const payload = {
+                operation: operation,
+                userId: chatId ?? '',
+                qrData: qrData,
+            };
+
+            if (operation === "work") {
+                console.log("WORK payload:", payload);
+                fetch("http://localhost:8008/cb/api/cargo_qr/", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify(payload),
+                })
+                    .then(res => {
+                        if (res.ok) {
+                            output.textContent = 'Успешно отправлено!';
+                            stopScanning();
+                        } else {
+                            output.textContent = `Ошибка сервера (${res.status}). Повторите.`;
+                            scanning = true;
+                            requestAnimationFrame(scanFrame);
+                        }
+                    })
+                    .catch(err => {
+                        console.error('API error', err);
+                        output.textContent = 'Сеть недоступна. Повторите.';
+                        scanning = true;
+                        requestAnimationFrame(scanFrame);
+                    });
+
+                return;
+            }
+
+            // для других operation можно оставить params как раньше
             const params = new URLSearchParams({
                 operation,
                 userId: chatId ?? '',
-                qrData
+                qrData: qrDataRaw,
             });
 
             fetch(`${qrApiBase}?${params.toString()}`)
                 .then(res => {
                     if (res.ok) {
                         output.textContent = 'Успешно отправлено!';
-                        stopScanning();      // закрываем камеру и возвращаем меню
+                        stopScanning();
                     } else {
                         output.textContent = `Ошибка сервера (${res.status}). Повторите.`;
-                        scanning = true;     // разрешаем повторный скан
+                        scanning = true;
                         requestAnimationFrame(scanFrame);
                     }
                 })
@@ -298,6 +453,41 @@
                     requestAnimationFrame(scanFrame);
                 });
         }
+    </script>
+    <script>
+        const modal = document.getElementById('modal');
+        const modalText = document.getElementById('modal-text');
+        const modalClose = document.getElementById('modal-close');
+
+        document.querySelectorAll('.info-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const type = btn.dataset.type;
+                let text = '';
+
+                switch (type) {
+                    case 'load':
+                        text = 'Выберите "ПОГРУЗКА", если вы загружаете упакованный товар на транспорт для отправки покупателю (Kaspi).';
+                        break;
+                    case 'pack':
+                        text = 'Выберите "УПАКОВКА", если вы подготовили товар к отправке (упаковали заказ Kaspi).';
+                        break;
+                    case 'work':
+                        text = 'Выберите "РАБОТЫ С ТОВАРОМ", если вы выполняете задачи: разгрузка, перемещение между складами, приём товара от поставщика и другие складские или логистические действия.';
+                        break;
+                }
+
+                modalText.textContent = text;
+                modal.style.display = 'flex';
+            });
+        });
+
+        modalClose.addEventListener('click', () => {
+            modal.style.display = 'none';
+        });
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) modal.style.display = 'none';
+        });
+
     </script>
 </body>
 
