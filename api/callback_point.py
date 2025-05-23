@@ -1,5 +1,12 @@
 from enum import Enum
-from fastapi import APIRouter, Query, Depends
+from fastapi import (
+    Request,
+    APIRouter,
+    HTTPException,
+    Query,
+    Depends,
+)
+from pydantic import BaseModel
 
 from core.RabbitInterface import PublisherInterface
 from infra.rabbit_depends import publisher_dep
@@ -11,6 +18,7 @@ router_callback_point = APIRouter(tags=["callback"])
 class Operation(str, Enum):
     load = "shipment"
     pack = "packing"
+    work = "work"
 
 
 @router_callback_point.get(
@@ -36,3 +44,35 @@ async def receive_qr(
     await publisher.publish(payload)
 
     return {"status": "queued", **payload}
+
+
+# MOCK_DATA_EXAMPLE = {
+#     "id": 123123,
+#     "m": 4,
+#     "v": 15,
+#     "city_from": "Астана",
+#     "city_to": "Караганда",
+# }
+
+
+class QRScanPayload(BaseModel):
+    operation: str  # только для "work"
+    userId: str
+    qrData: dict
+
+
+@router_callback_point.post("/api/cargo_qr/")
+async def handle_qr_scan(
+    request: Request,
+    publisher: PublisherInterface = Depends(publisher_dep),
+):
+    body = await request.json()
+
+    payload = QRScanPayload(**body)
+
+    if payload.operation != "work":
+        raise HTTPException(status_code=400, detail="Операция не поддерживается")
+
+    await publisher.publish(payload.model_dump(), queue="work_qr_queue")
+
+    return {"status": "queued", **payload.model_dump()}
