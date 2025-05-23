@@ -57,7 +57,7 @@ async def receive_qr(
 
 class QRScanPayload(BaseModel):
     operation: str  # только для "work"
-    userId: str
+    userId: int
     qrData: dict
 
 
