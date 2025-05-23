@@ -401,7 +401,7 @@
 
             if (operation === "work") {
                 console.log("WORK payload:", payload);
-                fetch("http://localhost:8008/cb/api/cargo_qr/", {
+                fetch("http://0.0.0.0:8008/cb/api/cargo_qr/", {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
