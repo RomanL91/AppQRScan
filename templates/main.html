@@ -276,6 +276,7 @@
         document.getElementById('user-info').textContent = chatId ? `Ваш chat_id: ${chatId}` : 'chat_id недоступен.';
 
         const qrApiBase = {{ qr_api_base | tojson }};
+        const qrApiCargo = {{ qr_cargo | tojson }};
 
         /********** DOM ссылки **********/
         const loadBtn = document.getElementById('load-btn');
@@ -401,7 +402,7 @@
 
             if (operation === "work") {
                 console.log("WORK payload:", payload);
-                fetch("http://localhost:8008/cb/api/cargo_qr/", {
+                fetch(qrApiCargo, {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
