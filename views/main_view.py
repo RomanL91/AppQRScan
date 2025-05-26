@@ -19,6 +19,6 @@ async def main_page(request: Request):
         context={
             "request": request,
             "qr_api_base": "https://sck.kz/cb/api/qr/",  # TODO в настройки
-            "qr_cargo": "https://sck.kz/cb/api/qr_cargo/",  # TODO в настройки
+            "qr_cargo": "https://sck.kz/cb/api/cargo_qr/",  # TODO в настройки
         },
     )
